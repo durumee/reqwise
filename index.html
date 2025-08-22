@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>replit</title>
+  <link href="style.css" rel="stylesheet" type="text/css" />
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+</head>
+
+<body>
+  <div><!--wrapper-->
+    <h1 style="border-bottom:0">Reqwise</h1>
+    <div><!--controller, init-->
+      <div class="header-section">
+        <div class="header-section-1">
+          <div class="header-title-left">
+            <div style="display:flex;flex-direction:row;gap:6px">
+              <p style="width:140px !important">
+                <select id="firstDepthList" style="width:140px;height:16px;border:1px solid white">
+                  <option value="0">전체</option>
+                </select>
+              </p>
+              <p>
+                <span id="searchFirstDepth" class="cursor:pointer">최상위 분류 조회</span>
+              </p>
+              <p>
+                <span id="addFirstDepth" class="cursor:pointer">최상위 분류 추가</span>
+              </p> ...
+              <p>
+                <span id="clickFoldAll" class="cursor:pointer">전체 접기</span>
+              </p>
+              <p>
+                <span id="clickUnfoldAll" class="cursor:pointer">전체 펼치기</span>
+              </p> ...
+              <p>
+                <span id="movePrevSr" class="cursor:pointer">이전 SR</span>
+              </p>
+              <p>
+                <span id="moveNextSr" class="cursor:pointer">다음 SR</span>
+              </p>
+            </div>
+            <div style="margin-bottom:4px;font-size:9pt" id="currPath">요구사항 분류 및 관련 SR</div>
+          </div>
+        </div>
+        <div class="header-section-2">
+          <div class="header-title-right">
+            SR 처리<p id="moveToday">오늘 <span class="material-symbols-outlined">chevron_right</span></p>
+          </div>
+        </div>
+        <div class="header-section-3">
+          <div class="table-container">
+            <table id="dateTable"></table>
+          </div>
+        </div>
+      </div>
+      <div class="sr-section">
+        <div class="sr-section-wrapper1">
+          <div class="sr-section-1"></div>
+          <div class="sr-section-2"></div>
+        </div>
+        <div class="sr-section-wrapper2">
+          <div class="sr-section-3"></div>
+        </div>
+      </div>
+    </div>
+    <div id="reqrmPop" class="popup-container" role="dialog" aria-model="true" aria-labelledby="popupTitle"
+      tabindex="-1" style="display:none">
+      <div class="popup-content">
+        <div class="popup-title">요구사항 관리</div>
+        <p class="desc">요구사항 제목과 설명을 입력/수정합니다.</p>
+        <label for="titleInput">제목</label>
+        <input id="titleInput" type="text" placeholder="제목을 입력하세요">
+        <label for="descInput">설명</label>
+        <textarea id="descInput" placeholder="설명을 입력하세요"></textarea>
+        <div class="button-row">
+          <button class="cancel">취소</button>
+          <button class="submit">저장</button>
+        </div>
+      </div>
+    </div>
+    <div id="srPop" class="popup-container" role="dialog" aria-model="true" aria-labelledby="popupTitle" tabindex="-1"
+      style="display:none">
+      <div class="popup-content">
+        <div class="popup-title">SR 분류 입력</div>
+        <p class="desc">요구사항 분류에 미지정 SR을 추가합니다.</p>
+        <label for="selectSr">미지정 SR 목록</label>
+        <input id="filterSr" type="text" size="20" placeholder="검색" autocomplete="off">
+        <select id="selectSr" multiple="multiple"></select>
+        <div class="button-row">
+          <button class="cancel">취소</button>
+          <button class="submit">저장</button>
+        </div>
+      </div>
+    </div>
+    <div id="loader" class="loader-container" role="status" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+    </div>
+    <div id="highlight-overlay"></div>
+    <div id="drag-ghost" style="position:absolute;left:-9999px;top:-9999px"></div>
+  </div>
+  <script src="script.js"></script>
+</body>
+
+</html>
