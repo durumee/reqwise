@@ -5,6 +5,13 @@
  * REQRM_DC VARCHAR(4000)
  * SORT_ORDR NUMBER
  * DEL_AT CHAR(1)
+ *
+ *
+ *
+ *
+ *
+ *
+ *
  */
 /**
  * ul.date-container > li.date-container-sub-empty > div.day-item-container
@@ -1664,7 +1671,34 @@ const wrap1Drop = (e) => {
               srms003Resource.updateReqrmOrder(reqrmOrderVo).then(() => {
                 // 이동 요소의 부모참조ID, 정렬순서, 순번텍스트 변경
                 const parentReqrmId = targetLi.parentElement.closest('li').dataset.reqrmId;
-                // TODO 1830라인부터 이식
+                toMoveElement.dataset.upperReqrmId = parentReqrmId;
+                toMoveElement.dataset.sortOrdr = parseInt(targetLi.dataset.sortOrdr) + 1;
+                toMoveElement.querySelector('div.content-no').textContent = toMoveElement.dataset.sortOrdr.toString().padStart(2, '0');
+
+                // 이동 요소의 상태 이동
+                let statusEl = document.querySelector(`li.status-container-sub-empty[data-reqrm-id="${toMoveElement.dataset.reqrmId}"]`);
+                let targetStatusEl = document.querySelector(`li.status-container-sub-empty[data-reqrm-id="${targetLi.dataset.reqrmId}"]`);
+                if (!statusEl) statusEl = document.querySelector(`li.status-container-sub[data-reqrm-id="${toMoveElement.dataset.reqrmId}"]`);
+                if (!targetStatusEl) targetStatusEl = document.querySelector(`li.status-container-sub[data-reqrm-id="${targetLi.dataset.reqrmId}"]`);
+                targetStatusEl.after(statusEl);
+
+                // 이동 요소의 날짜 이동
+                let dateEl = document.querySelector(`li.date-container-sub-empty[data-reqrm-id="${toMoveElement.dataset.reqrmId}"]`);
+                let targetDateEl = document.querySelector(`li.date-container-sub-empty[data-reqrm-id="${targetLi.dataset.reqrmId}"]`);
+                if (!dateEl) dateEl = document.querySelector(`li.date-container-sub[data-reqrm-id="${toMoveElement.dataset.reqrmId}"]`);
+                if (!targetDateEl) targetDateEl = document.querySelector(`li.date-container-sub[data-reqrm-id="${targetLi.dataset.reqrmId}"]`);
+                targetDateEl.after(dateEl);
+
+                // 이동 요소의 다음 형제들에 대한 처리
+                let nextEl = targetLi.nextElementSibling;
+                while (nextEl) {
+                  nextEl.dataset.sortOrdr = parseInt(nextEl.dataset.sortOrdr) + 1;
+                  nextEl.querySelector('div.content-no').textContent = nextEl.dataset.sortOrdr.toString().padStart(2, '0');
+                  nextEl = nextEl.nextElementSibling;
+                }
+
+                targetLi.after(toMoveElement);
+                applyObservation();
               });
             }
 
@@ -1676,22 +1710,29 @@ const wrap1Drop = (e) => {
 
 }
 
+let tdColSpan;
+let ranges;
+
+const reloadTdColSpan = () => {
+  tdColSpan = document.querySelectorAll('.table-container td[colspan]');
+  ranges = [];
+  tdColSpan.forEach(el => ranges.push(el.offsetLeft));
+}
+
 const applyStylingAndInteractivity = () => {  // ref::eventManager
   const wrapper1 = document.querySelector('.sr-section-wrapper1');
-  /*wrapper1.addEventListener('mouseover', _wrap1MouseOver);
-  wrapper1.addEventListener('mouseout', _wrap1MouseOut);
-  wrapper1.addEventListener('change', wrap1Change);
-  wrapper1.addEventListener('click', wrap1Click);*/
+  eventManager.add(wrapper1, 'click', wrap1Click);
   eventManager.add(wrapper1, 'mouseover', _wrap1MouseOver);
   eventManager.add(wrapper1, 'mouseout', _wrap1MouseOut);
   eventManager.add(wrapper1, 'change', wrap1Change);
-  eventManager.add(wrapper1, 'click', wrap1Click);
+  eventManager.add(wrapper1, 'dragstart', wrap1DragStart);
+  eventManager.add(wrapper1, 'dragover', wrap1DragOver);
+  eventManager.add(wrapper1, 'dragleave', wrap1DragLeave);
+  eventManager.add(wrapper1, 'drop', wrap1Drop);
 
-  document.querySelectorAll('li .expand-control').forEach(item => {
-    item.draggable = true;
-
-    item.addEventListener('drop', e => {
-    });
+  document.querySelector('#searchFirstDepth').addEventListener('click', () => {
+    localStorage.setItem('srms003.search.value', document.querySelector('#firstDepthList').value);
+    location.reload();
   });
 
   document.querySelector('#searchFirstDepth').addEventListener('click', detail);
@@ -1712,16 +1753,10 @@ const applyStylingAndInteractivity = () => {  // ref::eventManager
   srSecWrap1.addEventListener('scroll', () => srSecWrap2.scrollTop = srSecWrap1.scrollTop);
   srSecWrap2.addEventListener('scroll', () => {
     srSecWrap1.scrollTop = srSecWrap2.scrollTop;
-    if (!ignoreScrollEvent) {
-      headerSec3.scrollLeft = srSecWrap2.scrollLeft;
-      ignoreScrollEvent = false;
-    }
+    headerSec3.scrollLeft = srSecWrap2.scrollLeft;
   });
 
-  const tdColSpan = document.querySelectorAll('.table-container td[colspan]');
-  const ranges = [];
-  tdColSpan.forEach(el => ranges.push(el.offsetLeft));
-  let max = -1;
+  reloadTdColSpan();
 
   headerSec3.addEventListener('scroll', () => {
     max = Math.max(...ranges.filter(val => val <= headerSec3.scrollLeft));
@@ -1743,7 +1778,6 @@ const applyStylingAndInteractivity = () => {  // ref::eventManager
 let textAnimationInstance = null;
 
 const startScroll = () => {
-  console.log('startScroll');
   const scrollText = document.querySelector('#currPath');
   const scrollArea = document.querySelector('.header-title-left');
   const textWidth = scrollText.scrollWidth;
@@ -1786,49 +1820,42 @@ const stopScroll = () => {
 }
 
 const applyObservation = () => {
-  if (srObserver) {
-    srTargets.forEach(el => srObserver.unobserve(el));
-    srObserver.disconnect();
-  }
   if (dateObserver) {
     dateTargets.forEach(el => dateObserver.unobserve(el));
     dateObserver.disconnect();
   }
-  // 이전/다음 SR 그룹 이동을 위한 옵저버
-  srTargets = document.querySelectorAll('div.btn-uncomplete, div.btn-complete');
-  srObserver = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      const tempIndex = srSections?.findIndex(item => item.reqrmId === entry.target.dataset.reqrmId);
-      let arrayIndex;
-      arrayIndex = srSections?.[tempIndex]?.index;
-
-      if (!entry.isIntersecting) {
-        const tmp = srSectionsCurrentIndex?.filter(item => item != arrayIndex);
-        srSectionsCurrentIndex = tmp?.sort((a, b) => a - b);
-      } else {
-        srSectionsCurrentIndex?.push(arrayIndex);  // 나타난 값을 추가
-        srSectionsCurrentIndex?.sort((a, b) => a - b);  // 나타난 값을 추가
-      }
-    });
-  });
-
-  srTargets.forEach(el => srObserver.observe(el));
 
   // 리스트의 가상 스크롤링을 위한 옵저버, 각 리스트가 나타나면 최소, 최대값을 가지고 프래그먼트 내용을 추출한다
-  dateTargets = document.querySelectorAll('div[class^="day-item-container"]');
+  dateTargets = document.querySelectorAll('div.item-container-sub1, div.sr-data');
   dateObserver = new IntersectionObserver(entries => {
     entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const srNo = entry.target.dataset?.srNo;
+      const srNo = entry.target.dataset.srNo;
+      const reqrmId = entry.target.dataset.reqrmId;
+      let targetEl;
 
+      if (typeof srNo !== 'undefined') {
+        targetEl = document.querySelector(`div.day-item-container-sr[data-sr-no="${srNo}"]`);
+      } else {
+        targetEl = document.querySelector(`div.day-item-container[data-reqrm-id="${reqrmId}"]`);
+      }
+
+      if (entry.isIntersecting) {
+        if (targetEl) {
+          targetEl.innerHTML = '';
+        }
+      } else {
         if (typeof srNo !== 'undefined') {
-          const _dayItem = dayItemMap.get(entry.target.dataset.srNo).cloneNode(true);
-          entry.target.appendChild(_dayItem);
+          const _dayItem = dayItemMap.get(srNo).cloneNode(true);
+          targetEl.appendChild(_dayItem);
         } else {
-          entry.target.appendChild(partlyDayItemFrag.cloneNode(true));
+          targetEl.appendChild(partlyDayItemFrag.cloneNode(true));
         }
       }
     });
+  }, {
+    root: document.querySelector('div.sr-section-wrapper1'),  // 날짜 영역을 표시할때 깜빡임을 최소화 하기 위해 영역을 지정하고 rootMargin을 상하로 확장
+    rootMargin: "1000px 0px",
+    threshold: 0
   });
 
   dateTargets.forEach(el => dateObserver.observe(el));
