@@ -57,7 +57,8 @@ let foldInfo = [];
 let submitUpperReqrmId = '';
 let submitReqrmId = '';
 let reqrmData = '';
-let dayItemMap = new Map();  // maybe re-initialization needed for renderList
+let srData = [];
+let dayItemMap = new WeakMap();  // maybe re-initialization needed for renderList
 let searchFirstDepthValue = '';
 let dateObserver = null;
 let dateTargets = null;
@@ -181,11 +182,13 @@ const saveReqrm = async () => {
       if (reqrmVo.upperReqrmId == 0) {
         localStorage.setItem('srms003.search.value', _reqrmId);
         location.reload();
+        //window.location.replace(window.location.pathname + '?=' + new Date().getTime() + window.location.hash;
       } else {
         reqrmVo.reqrmId = parseInt(_reqrmId);
         reqrmVo.upperReqrmId = parseInt(reqrmVo.upperReqrmId);
-        const listIndex = document.querySelector('#firstDepthList').selectedIndex;
-        const appendedNode = appendNodeByUpperReqrmId(reqrmData[listIndex], reqrmVo);
+        const currFirstDepthVal = document.querySelector(`li.toggle-box[data-reqrm-id="${reqrmVo.upperReqrmId}"]`).closest('li.toggle-box[data-upper-reqrm-id="0"]').dataset.reqrmId;
+        let selectedIndex = reqrmData.findIndex(item => item.reqrmId == currFirstDepthVal);
+        const appendedNode = appendNodeByUpperReqrmId(reqrmData[selectedIndex], reqrmVo);
         reqrmVo.sortOrdr = parseInt(appendedNode.sortOrdr);
   
         const toggleBox = document.querySelector(`li.toggle-box[data-reqrm-id="${reqrmVo.upperReqrmId}"]`);
@@ -242,11 +245,17 @@ const cleanReqrmElement = (target) => {
   dateObserver.unobserve(target.querySelector('div.item-container-sub1'));
 
   if (target.parentElement && target.parentElement.childElementCount > 0) {
-    document.querySelector(`li.date-container-sub-empty[data-reqrm-id="${target.dataset.reqrmId}"]`)?.remove();
-    document.querySelector(`li.status-container-sub-empty[data-reqrm-id="${target.dataset.reqrmId}"]`)?.remove();
-    document.querySelector(`li.date-container-sub[data-reqrm-id="${target.dataset.reqrmId}"]`)?.remove();
-    document.querySelector(`li.status-container-sub[data-reqrm-id="${target.dataset.reqrmId}"]`)?.remove();
+    const upperReqrmId = target.dataset.upperReqrmId;
+    const reqrmId = target.dataset.reqrmId;
+    document.querySelector(`li.date-container-sub-empty[data-reqrm-id="${reqrmId}"]`)?.remove();
+    document.querySelector(`li.status-container-sub-empty[data-reqrm-id="${reqrmId}"]`)?.remove();
+    document.querySelector(`li.date-container-sub[data-reqrm-id="${reqrmId}"]`)?.remove();
+    document.querySelector(`li.status-container-sub[data-reqrm-id="${reqrmId}"]`)?.remove();
     target.remove();  // div.item-container
+
+    // 형제 요소의 순번 텍스트 갱신
+    const siblingsNo = document.querySelectorAll(`li.toggle-box[data-upper-reqrm-id="${upperReqrmId}"]`);
+    siblingsNo.forEach((el, idx) => el.querySelector('div.content-no').textContent = (idx + 1).toString().padStart(2, '0'));
   } else {//자식 요소 1개 이상 조건이 if에 있기 때문에 이 else 부분은 데드코드일 가능성이 높음
     //  부모 ul 요소가 더 이상 자식을 가지지 않으면 부모 요소 자체를 제거 필요
     document.querySelector(`li.date-container-sub-empty[data-reqrm-id="${target.dataset.reqrmId}"]`)?.parentElement.remove();
@@ -268,9 +277,13 @@ const deleteReqrm = async (e) => {
 
       srms003Resource.deleteReqrm(reqrmVo).then(list => {
         if (_upperReqrmId == 0) {
-          localStorage.setItem('srms003.search.value', _reqrmId);
+          localStorage.removeItem('srms003.search.value');
           location.reload();
+          //window.location.replace(window.location.pathname + '?=' + new Date().getTime() + window.location.hash;
         } else {
+          const currFirstDepthVal = document.querySelector(`li.toggle-box[data-reqrm-id="${_upperReqrmId}"]`).closest('li.toggle-box[data-upper-reqrm-id="0"]').dataset.reqrmId;
+          let selectedIndex = reqrmData.findIndex(item => item.reqrmId == currFirstDepthVal);
+          removeNodeByReqrmId(reqrmData[selectedIndex], _reqrmId);
           cleanReqrmElement(target);
         }
       });
@@ -339,14 +352,19 @@ const renderList = async (list) => {
   reqrmData = convertRowToJson(list);
   refreshFirstDepthList();
   createDateHeaderFrag();
-  searchFirstDepthValue = document.querySelector('#firstDepthList').value;
+  searchFirstDepthValue = localStorage.getItem('srms003.search.value');
 
   if (searchFirstDepthValue == '0') {
     renderItemTree(reqrmData, frag1, frag2, frag3);
   } else {
-    const listIndex = reqrmData.findIndex(el => el.reqrmId == searchFirstDepthValue);
-    if (listIndex > -1) {
-      renderItemTree(new Array(reqrmData[listIndex]), frag1, frag2, frag3);
+    if (reqrmData) {
+      const listIndex = reqrmData.findIndex(el => el.reqrmId == searchFirstDepthValue);
+      if (listIndex > -1) {
+        renderItemTree(new Array(reqrmData[listIndex]), frag1, frag2, frag3);
+      } else {
+        renderItemTree(new Array(reqrmData[0]), frag1, frag2, frag3);
+        localStorage.setItem('srms003.search.value', document.querySelector('#firstDepthList').value);
+      }
     }
   }
 
@@ -481,7 +499,7 @@ const _filterSrInput = () => {
   const keyword = filterSr.value.toLowerCase();
   selectSr.innerHTML = '';
 
-  list.forEach(el => {
+  srData.forEach(el => {
     const text = `${el.srNo} | ${el.srmsTitle}`;
     if (text.toLowerCase().includes(keyword)) {
       const option = document.createElement('option');
@@ -623,15 +641,16 @@ const openSrPop = (reqrmId) => {
   const tmpTitle = document.querySelector(`li[data-reqrm-id="${reqrmId}"] .content-title`).textContent;
   document.querySelector('#srPop .desc').textContent = `${tmpNo} ${tmpTitle}`;
 
-  srms003Resource.getSrList().then((list) => {
+  srms003Resource.getSrList().then(list => {
     const filterSr = document.querySelector('#filterSr');
     const selectSr = document.querySelector('#selectSr');
     filterSr.value = '';
     filterSr.focus();
     filterSr.addEventListener('input', _filterSrInput);
     selectSr.addEventListener('click', _selectSrClick);
+    srData = list;
 
-    list.forEach(el => {
+    srData.forEach(el => {
       const option = document.createElement('option');
       option.value = el.reqSeq;
       option.innerText = `${el.srNo} | ${el.srmsTitle}`;
@@ -650,7 +669,8 @@ const closeSrPop = () => {
   }, 300);
   submitReqrmId = '';
   document.querySelector('#selectSr').innerHTML = '';
-  document.querySelector('#filterSr').removeEventListener('click', _filterSrInput);
+  document.querySelector('#filterSr').removeEventListener('input', _filterSrInput);
+  document.querySelector('#filterSr').removeEventListener('click', _selectSrClick);
   document.querySelector('#srPop').style.display = 'none';
 };
 
@@ -690,6 +710,21 @@ const createNode = (row) => {
     rltSrCnt: row.rltSrCnt ? row.rltSrCnt : '',
     rltSrList: row.rltSrList ? row.rltSrList : '',
     children: []
+  }
+}
+
+const removeNodeByReqrmId = (data, reqrmId) => {
+  if (data.children && Array.isArray(data.children)) {
+    const idx = data.children.findIndex(child => child.reqrmId === parseInt(reqrmId));
+
+    if (idx > -1) {
+      data.children = data.children.filter(child => child.reqrmId !== parseInt(reqrmId));
+      data.children = data.children.map((child, idx) => ({ ...child, sortOrdr: idx + 1}));
+    } else {
+      for (const child of data.children) {
+        removeNodeByReqrmId(child, reqrmId);
+      }
+    }
   }
 }
 
@@ -1733,6 +1768,7 @@ const applyStylingAndInteractivity = () => {  // ref::eventManager
   document.querySelector('#searchFirstDepth').addEventListener('click', () => {
     localStorage.setItem('srms003.search.value', document.querySelector('#firstDepthList').value);
     location.reload();
+    //window.location.replace(window.location.pathname + '?=' + new Date().getTime() + window.location.hash);
   });
 
   document.querySelector('#searchFirstDepth').addEventListener('click', detail);
