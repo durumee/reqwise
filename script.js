@@ -1091,12 +1091,21 @@ const createDayItemContainerSr = (srData) => {
 }
 
 const renderItemTree = async (data, parentElement, parentElement2, parentElement3, depth = 1, upperReqrmId = 0) => {
-  const ul = document.createElement('ul');
+  let ul = document.createElement('ul');
   ul.className = 'hierachy-list';
-  const ulStatusContainer = document.createElement('ul');
+  let ulStatusContainer = document.createElement('ul');
   ulStatusContainer.className = 'status-container';
-  const ulDateContainer = document.createElement('ul');
+  let ulDateContainer = document.createElement('ul');
   ulDateContainer.className = 'date-container';
+
+  // 추가 생성되는 요소는 부모 ul을 포함하여 전달되므로, ul 요소를 대체해준다
+  const pTag = parentElement?.tagName?.toLowerCase();
+  const pTag2 = parentElement2?.tagName?.toLowerCase();
+  const pTag3 = parentElement3?.tagName?.toLowerCase();
+
+  if (pTag === 'ul') ul = parentElement;
+  if (pTag2 === 'ul') ulStatusContainer = parentElement2;
+  if (pTag3 === 'ul') ulDateContainer = parentElement3;
 
   data.forEach(item => {
     const li = document.createElement('li');
@@ -1243,9 +1252,11 @@ const renderItemTree = async (data, parentElement, parentElement2, parentElement
     ulDateContainer.appendChild(liDateContainerSub);
   });
 
-  parentElement.appendChild(ul);
-  parentElement2.appendChild(ulStatusContainer);
-  parentElement3.appendChild(ulDateContainer);
+  if (ul !== parentElement) {  // 재귀 생성일때만 부모 요소에 append
+    parentElement.appendChild(ul);
+    parentElement2.appendChild(ulStatusContainer);
+    parentElement3.appendChild(ulDateContainer);
+  }
 }
 
 const toggleFoldAll = async (foldAction) => {
